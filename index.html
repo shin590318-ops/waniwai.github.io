@@ -128,6 +128,31 @@
             100% { opacity: 0; transform: translateY(-80px) scale(1); }
         }
 
+        /* Chain Popup */
+        .chain-popup {
+            position: absolute;
+            color: #38b2ac; /* teal-400 */
+            font-size: 2.5rem;
+            font-weight: 900;
+            font-style: italic;
+            text-shadow: 
+                -2px -2px 0 #fff,
+                2px -2px 0 #fff,
+                -2px 2px 0 #fff,
+                2px 2px 0 #fff,
+                0px 5px 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 60;
+            animation: pop-scale 0.8s ease-out forwards;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes pop-scale {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5) rotate(-10deg); }
+            30% { transform: translate(-50%, -50%) scale(1.2) rotate(5deg); }
+            100% { opacity: 0; transform: translate(-50%, -100%) scale(1) rotate(0deg); }
+        }
+
         /* UI */
         .glass-panel {
             background: rgba(255, 255, 255, 0.1);
@@ -219,7 +244,7 @@
     // Game Configuration
     const MAX_HP = 150;
     const GAME_DURATION = 30; // seconds
-    const SPAWN_INTERVAL = 600; // ms
+    const SPAWN_INTERVAL = 400; // カオス感を出すために出現間隔を短くしました (600 -> 400)
     const WORD_LIST = [
         'AIについて', 
         '会社責任について', 
@@ -227,7 +252,14 @@
         '被害総額は', 
         '被害者に対して', 
         'ホワイトハッカー', 
-        '喋り過ぎ'
+        '喋り過ぎ',
+        '隠蔽ではないですか',
+        '辞任の予定は',
+        '誠意が見られない',
+        '説明責任',
+        '第三者委員会',
+        '株主への説明',
+        '再発防止策'
     ];
 
     // State Variables
@@ -235,6 +267,8 @@
     let timeLeft = GAME_DURATION;
     let isPlaying = false;
     let activeWords = []; // Array of objects: { el, x, y, vx, vy, text }
+    let currentChain = 0;
+    let lastTappedWord = "";
     
     // Timers & Loops
     let gameLoopId;
@@ -265,6 +299,8 @@
         currentHp = MAX_HP;
         timeLeft = GAME_DURATION;
         isPlaying = true;
+        currentChain = 0;
+        lastTappedWord = "";
         activeWords.forEach(w => w.el.remove());
         activeWords = [];
         
@@ -351,7 +387,7 @@
         // Interaction
         wordEl.addEventListener('pointerdown', (e) => {
             e.preventDefault(); // Prevent touch issues
-            handleWordClick(text);
+            handleWordClick(text, e.clientX, e.clientY);
         });
 
         elWordsLayer.appendChild(wordEl);
@@ -369,7 +405,7 @@
         }, 0);
     }
 
-    function handleWordClick(clickedText) {
+    function handleWordClick(clickedText, clickX, clickY) {
         if (!isPlaying) return;
 
         // Find all matching words
@@ -378,8 +414,16 @@
         
         if (count === 0) return;
 
-        // Calculate damage: count * count * 3
-        const damage = count * count * 3;
+        // Chain Logic
+        if (clickedText === lastTappedWord) {
+            currentChain++;
+        } else {
+            currentChain = 1;
+            lastTappedWord = clickedText;
+        }
+
+        // Calculate damage: (count * count * 3) multiplied by chain bonus
+        const damage = count * count * 3 * currentChain;
         
         // Remove matching words
         matchingWords.forEach(w => {
@@ -399,6 +443,10 @@
         triggerBossShake();
         showDamagePopup(damage);
         triggerFlash();
+
+        if (currentChain > 1) {
+            showChainPopup(clickX, clickY, currentChain);
+        }
     }
 
     function applyDamage(amount) {
@@ -458,6 +506,19 @@
         if(Math.random() > 0.5 && isPlaying) {
             triggerFlash();
         }
+    }
+
+    function showChainPopup(x, y, chainCount) {
+        const popup = document.createElement('div');
+        popup.className = 'chain-popup';
+        popup.textContent = chainCount + ' CHAIN!';
+        
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+
+        document.getElementById('game-container').appendChild(popup);
+
+        setTimeout(() => popup.remove(), 800);
     }
 
     let lastFrameTime = 0;
